@@ -4,19 +4,18 @@
  * require modules
  */
 require_once '../core/core.php';
-require_once '../core/tags.php';
 
 $json = [];
 
 /**
  * retrieve all tags
  */
-if (($tags = get_all_tags())) {
+if (($roles = get_all_roles())) {
     $json["success"] = true;
     $json["data"] = [];
-    $json["data"]["tags"] = [];
-    while ($tag = $tags->fetch_assoc()) {
-        $json["data"]["tags"][] = $tag;
+    $json["data"]["roles"] = [];
+    while ($role = $roles->fetch_assoc()) {
+        $json["data"]["roles"][] = $role;
     }
 } else {
     $json["success"] = false;

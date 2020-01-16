@@ -57,6 +57,38 @@ function get_user_by_username($username = null) {
 }
 
 /**
+ * get user by cookies
+ * @param string $username
+ * @param string $rnd_pwd
+ * @param string $rnd_slc
+ * @global type $DB
+ * @return mixed user data or false
+ */
+function get_user_by_cookies($username, $rnd_pwd, $rnd_slc) {
+    global $DB;
+
+    $_q = "SELECT u.id, u.username, u.role as perm, r.role FROM users as u, " .
+            "roles as r WHERE u.role = r.id AND u.username = ? AND " .
+            "u.rnd_pwd = MD5(?) AND u.rnd_slc = MD5(?) AND ".
+            "expiration >= UNIX_TIMESTAMP()";
+    $stmt = $DB->prepare($_q);
+    $stmt->bind_param('sss', $username, $rnd_pwd, $rnd_slc);
+    $stmt->execute();
+
+    if ($stmt === false) {
+        trigger_error('Error: ' . $DB->error, E_USER_ERROR);
+        return false;
+    } else {
+        $result = $stmt->get_result();
+        while (($rs = $result->fetch_object())) {
+            $_SESSION['user'] = $rs;
+        }
+        $stmt->close();
+        return (array_key_exists('user', $_SESSION)) ? $_SESSION['user'] : false;
+    }
+}
+
+/**
  * add new user
  * @param string $username
  * @param string $password
@@ -122,6 +154,7 @@ function delete_user($id_user) {
  * @param string $username
  * @param string $password
  * @param int $role
+
  * @global type $DB
  * @return boolean
  */
@@ -274,10 +307,55 @@ function edit_role($id, $role) {
 }
 
 /**
+ * edit cookies login
+ * @param int $id
+ * @param string $rnd_pwd
+ * @param string $rnd_slc
+ * @param int $expiration
+ * @global type $DB
+ * @return boolean
+ */
+function edit_cookies_login($id, $rnd_pwd, $rnd_slc, $expiration) {
+    global $DB;
+
+    $stmt = false;
+    if (null === $rnd_pwd && null === $rnd_slc && null == $expiration) {
+        $_q = "UPDATE users SET rnd_pwd = null, rnd_slc = null, " .
+                "expiration = null WHERE id = ?";
+        $stmt = $DB->prepare($_q);
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+    } else {
+        $_q = "UPDATE users SET rnd_pwd = COALESCE(MD5(?), rnd_pwd), " .
+                "rnd_slc = COALESCE(MD5(?), rnd_slc), " .
+                "expiration = COALESCE(?, expiration) WHERE id = ?";
+        $stmt = $DB->prepare($_q);
+        $stmt->bind_param('ssii', $rnd_pwd, $rnd_slc, $expiration, $id);
+        $stmt->execute();
+    }
+
+    if ($stmt === false) {
+        trigger_error('Error: ' . $DB->error, E_USER_ERROR);
+        return false;
+    } else {
+        $result = $stmt->affected_rows;
+        $stmt->close();
+        return $result;
+    }
+}
+
+/**
  * logout
  */
 if (isset($_POST["logout"])) {
-    unset($_SESSION["user"]);
+    if (isset($_SESSION["user"])) {
+        $id = $_SESSION["user"]->id;
+        unset($_SESSION["user"]);
+        edit_cookies_login($id, null, null, null);
+    }
+    setcookie("remember", "", time() - 3600);
+    setcookie("random_password", "", time() - 3600);
+    setcookie("random_selector", "", time() - 3600);
 }
 
 /**
@@ -293,4 +371,41 @@ if (isset($_POST["logout"])) {
     $password = filter_input(INPUT_POST, 'password', FILTER_SANITIZE_STRING);
 
     $USER = get_user($username, $password);
+
+    /* remember user for 30 days */
+    if (isset($_POST["remember"])) {
+        $expiration_time = time() + (86400 * 30);
+
+        // set main cookie
+        setcookie("remember", $username, $expiration_time);
+
+        // set random password
+        $random_password = random_str(16);
+        setcookie("random_password", $random_password, $expiration_time);
+
+        // set random selector
+        $random_selector = random_str(16);
+        setcookie("random_selector", $random_selector, $expiration_time);
+
+        // update db
+        edit_cookies_login($USER->id, $random_password, $random_selector,
+                $expiration_time);
+    }
+}
+
+/**
+ * log in by cookies
+ */ elseif (isset($_COOKIE["remember"]) && isset($_COOKIE["random_password"]) &&
+        isset($_COOKIE["random_selector"])) {
+
+    $username = filter_input(INPUT_COOKIE, 'remember', FILTER_SANITIZE_STRING);
+    $random_password = filter_input(INPUT_COOKIE, 'random_password', FILTER_SANITIZE_STRING);
+    $random_selector = filter_input(INPUT_COOKIE, 'random_selector', FILTER_SANITIZE_STRING);
+
+    $USER = get_user_by_cookies($username, $random_password, $random_selector);
+    if (!$USER) {
+        setcookie("remember", "", time() - 3600);
+        setcookie("random_password", "", time() - 3600);
+        setcookie("random_selector", "", time() - 3600);
+    }
 }

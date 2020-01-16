@@ -28,7 +28,7 @@ function get_uploaded_file() {
         }
 
         // check filesize
-        if ($_FILES["file"]['size'] > 10240) {
+        if ($_FILES["file"]['size'] > 10240000) {
             throw new RuntimeException('Exceeded filesize limit.');
         }
 
@@ -38,7 +38,6 @@ function get_uploaded_file() {
                 $finfo->file($_FILES["file"]['tmp_name']),
                 array(
                     'jpg' => 'image/jpeg',
-                    'jpg' => 'image/jpg',
                     'png' => 'image/png',
                     'gif' => 'image/gif'
                 ), true)) {
@@ -58,4 +57,23 @@ function get_uploaded_file() {
         trigger_error('Error: ' . $e, E_USER_ERROR);
         return null;
     }
+}
+
+/**
+ * generate random string
+ * @return string the random password
+ * @throws Exception
+ */
+function random_str($length,
+        $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+
+    $str = '';
+    $max = mb_strlen($keyspace, '8bit') - 1;
+    if ($max < 1) {
+        throw new Exception('$keyspace must be at least two characters long');
+    }
+    for ($i = 0; $i < $length; ++$i) {
+        $str .= $keyspace[random_int(0, $max)];
+    }
+    return $str;
 }

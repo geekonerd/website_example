@@ -9,10 +9,10 @@ $DB = null;
 function connect_to_db() {
     global $DB;
 
-    $DBServer = ''; // IP
-    $DBUser = '';   // username
-    $DBPass = '';   // password
-    $DBName = '';   // schema name
+    $DBServer = '127.0.0.1';
+    $DBUser = 'god';
+    $DBPass = 'root';
+    $DBName = 'example';
     $DB = new mysqli($DBServer, $DBUser, $DBPass, $DBName);
     if ($DB->connect_error) {
         trigger_error('Database connection failed: ' . $DB->connect_error, E_USER_ERROR);

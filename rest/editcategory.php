@@ -19,7 +19,7 @@ if ($USER && $USER->perm < 3 && isset($_POST["id"])) {
             filter_input(INPUT_POST, 'title', FILTER_SANITIZE_SPECIAL_CHARS) : null;
     $description = isset($_POST["description"]) ?
             filter_input(INPUT_POST, 'description', FILTER_SANITIZE_SPECIAL_CHARS) : null;
-    $cover = get_uploaded_file();
+    $cover = (isset($_FILES["file"])) ? get_uploaded_file() : null;
 
     $result = edit_category($id, $title, $description, $cover);
 
